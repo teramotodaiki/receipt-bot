@@ -4,4 +4,6 @@
 interface Env {
 	AZURE_SUBCRIPTION_KEY: string;
 	LINE_CHANNEL_ACCESS_TOKEN: string;
+	GOOGLE_CREDENTIALS: string;
+	GOOGLE_SPREADSHEET_ID: string;
 }

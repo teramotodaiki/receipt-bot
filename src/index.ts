@@ -12,6 +12,7 @@
  */
 
 import { analyze } from './analyze';
+import { appendToSheet } from './spreadsheet';
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -41,16 +42,14 @@ export default {
 				const receipt = await analyze(image, env);
 
 				const text = [
-					receipt.fields.MerchantName?.content,
-					receipt.fields.TransactionDate?.content,
-					...receipt.fields.Items?.values
-						.filter((item) => item.properties.Description && item.properties.TotalPrice)
-						.map((item) => item.properties.Description.content + ' ' + item.properties.TotalPrice.content),
-					receipt.fields.Subtotal?.content,
-					receipt.fields.Total?.content + ' (税込)',
+					receipt.date,
+					receipt.merchant,
+					...receipt.items.map((item) => `${item.name} ¥${item.price}`),
+					'¥' + receipt.subTotal,
+					'¥' + receipt.total + ' (税込)',
 				].join('\n');
 
-				await fetch('https://api.line.me/v2/bot/message/reply', {
+				const lineRes = await fetch('https://api.line.me/v2/bot/message/reply', {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
@@ -66,6 +65,12 @@ export default {
 						],
 					}),
 				});
+				console.log(await lineRes.text());
+
+				// Google Spreadsheetに書き込む
+				const rows = receipt.items.map((item) => [receipt.date, receipt.merchant, item.name, item.price]);
+				const googleRes = await appendToSheet(env, 'data', rows);
+				console.log(await googleRes.text());
 			})()
 		);
 		return new Response('Hello world!');

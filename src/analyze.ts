@@ -1,4 +1,4 @@
-import { AzureKeyCredential, DocumentAnalysisClient, DocumentField } from '@azure/ai-form-recognizer';
+import { AzureKeyCredential, DocumentAnalysisClient, DocumentField, DocumentObjectField } from '@azure/ai-form-recognizer';
 
 export async function analyze(arrayBuffer: ArrayBuffer, env: Env) {
 	// Azure resource name and key
@@ -19,37 +19,24 @@ export async function analyze(arrayBuffer: ArrayBuffer, env: Env) {
 	// Get the first document from the receipt
 	const receipt = documents[0];
 
-	const merchant = getString(receipt.fields.MerchantName);
+	const items =
+		getArray(receipt.fields.Items)
+			?.filter(itemIsObject)
+			.filter((item) => item.properties.Description && item.properties.TotalPrice)
+			.map((item) => {
+				return {
+					name: item.properties.Description?.content,
+					price: item.properties.TotalPrice?.kind === 'number' ? item.properties.TotalPrice.value : 0,
+				};
+			}) ?? [];
 
-	const items = receipt.fields.Items;
-	if (items.kind === 'array') {
-		for (const item of items.values) {
-			if (item.kind === 'object') {
-				let product = getString(item.properties.Description);
-				// クスリのアオキのレシートには * で始まるものがあり、これがカタカナの「ネ」に誤読される
-				if (merchant === 'クスリのアオキ' && product?.[0] === 'ネ') {
-					product = product.slice(1);
-				}
-				const price = getNumber(item.properties.TotalPrice);
-				// const code = getString(item.properties.ProductCode);
-				console.log(`${merchant},${product},${price}`);
-			}
-		}
-	}
-	const total = getNumber(receipt.fields.Total);
-	console.log('SubTotal: ', total);
-
-	// Extract and print receipt information
-	console.log('Receipt Type: ', receipt.docType);
-	for (let [key, field] of Object.entries(receipt.fields)) {
-		console.log(key, ': ', field?.content || field.values || 'N/A');
-	}
-
-	console.log('Merchant Name: ', receipt.fields.MerchantName.content || 'N/A');
-	console.log('Transaction Date: ', receipt.fields.transactionDate?.value || 'N/A');
-	console.log('Total: ', receipt.fields.total?.value || 'N/A');
-
-	return receipt;
+	return {
+		merchant: getString(receipt.fields.MerchantName),
+		date: getDateString(receipt.fields.TransactionDate),
+		total: getNumber(receipt.fields.Total),
+		subTotal: getNumber(receipt.fields.Subtotal),
+		items,
+	};
 }
 
 function getNumber(document?: DocumentField) {
@@ -64,14 +51,18 @@ function getString(document?: DocumentField) {
 	}
 }
 
+function getDateString(dateDocument?: DocumentField) {
+	if (dateDocument?.kind === 'date' && dateDocument.value) {
+		return dateDocument.value.toLocaleDateString('ja-JP');
+	}
+}
+
 function getArray(document?: DocumentField) {
 	if (document?.kind === 'array') {
 		return document.values;
 	}
 }
 
-function getObject(document?: DocumentField) {
-	if (document?.kind === 'object') {
-		return document.properties;
-	}
+function itemIsObject(item: DocumentField): item is DocumentObjectField {
+	return item.kind === 'object';
 }
