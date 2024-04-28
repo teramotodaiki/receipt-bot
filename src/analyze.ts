@@ -2,7 +2,7 @@ import { AzureKeyCredential, DocumentAnalysisClient, DocumentField, DocumentObje
 
 export async function analyze(arrayBuffer: ArrayBuffer, env: Env) {
 	// Azure resource name and key
-	const endpoint = 'https://personal-jikken-receipt-analyzer.cognitiveservices.azure.com';
+	const endpoint = env.AZURE_ENDPOINT;
 
 	// Create a new client
 	const credential = new AzureKeyCredential(env.AZURE_SUBCRIPTION_KEY);
