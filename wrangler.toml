@@ -4,9 +4,6 @@ main = "src/index.ts"
 compatibility_date = "2024-04-23"
 compatibility_flags = ["nodejs_compat"]
 
-[vars]
-AZURE_SUBCRIPTION_KEY = ""
-LINE_CHANNEL_ACCESS_TOKEN = ""
 
 # Automatically place your workloads in an optimal location to minimize latency.
 # If you are running back-end logic in a Worker, running it closer to your back-end infrastructure
