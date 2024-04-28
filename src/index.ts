@@ -15,52 +15,59 @@ import { analyze } from './analyze';
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		const json = await request.json();
-
-		const event = json.events[0];
-		if (event.type !== 'message' || event.message.type !== 'image') {
+		if (request.method === 'GET') {
 			return new Response('Hello world!');
 		}
 
-		const replyToken = event.replyToken;
-		const messageId = event.message.id;
+		const json = await request.json();
 
-		const imageResponse = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
-			headers: {
-				Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`,
-			},
-		});
-		const image = await imageResponse.arrayBuffer();
+		const event = json.events[0];
+		if (!event || event.type !== 'message' || event.message.type !== 'image') {
+			return new Response('Hello world!');
+		}
 
-		const receipt = await analyze(image, env);
+		ctx.waitUntil(
+			(async function task() {
+				const replyToken = event.replyToken;
+				const messageId = event.message.id;
 
-		const text = [
-			receipt.fields.MerchantName?.content,
-			receipt.fields.TransactionDate?.content,
-			...receipt.fields.Items?.values
-				.filter((item) => item.properties.Description && item.properties.TotalPrice)
-				.map((item) => item.properties.Description.content + ' ' + item.properties.TotalPrice.content),
-			receipt.fields.Subtotal?.content,
-			receipt.fields.Total?.content + ' (税込)',
-		].join('\n');
-
-		const res = await fetch('https://api.line.me/v2/bot/message/reply', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`,
-			},
-			body: JSON.stringify({
-				replyToken,
-				messages: [
-					{
-						type: 'text',
-						text,
+				const imageResponse = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+					headers: {
+						Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`,
 					},
-				],
-			}),
-		});
+				});
+				const image = await imageResponse.arrayBuffer();
 
+				const receipt = await analyze(image, env);
+
+				const text = [
+					receipt.fields.MerchantName?.content,
+					receipt.fields.TransactionDate?.content,
+					...receipt.fields.Items?.values
+						.filter((item) => item.properties.Description && item.properties.TotalPrice)
+						.map((item) => item.properties.Description.content + ' ' + item.properties.TotalPrice.content),
+					receipt.fields.Subtotal?.content,
+					receipt.fields.Total?.content + ' (税込)',
+				].join('\n');
+
+				await fetch('https://api.line.me/v2/bot/message/reply', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`,
+					},
+					body: JSON.stringify({
+						replyToken,
+						messages: [
+							{
+								type: 'text',
+								text,
+							},
+						],
+					}),
+				});
+			})()
+		);
 		return new Response('Hello world!');
 	},
 };
