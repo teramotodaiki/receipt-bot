@@ -25,8 +25,8 @@ export async function analyze(arrayBuffer: ArrayBuffer, env: Env) {
 			.filter((item) => item.properties.Description && item.properties.TotalPrice)
 			.map((item) => {
 				return {
-					name: item.properties.Description?.content,
-					price: item.properties.TotalPrice?.kind === 'number' ? item.properties.TotalPrice.value : 0,
+					name: getString(item.properties.Description),
+					price: getNumber(item.properties.TotalPrice) ?? 0,
 				};
 			}) ?? [];
 
@@ -47,7 +47,7 @@ function getNumber(document?: DocumentField) {
 
 function getString(document?: DocumentField) {
 	if (document?.kind === 'string') {
-		return document.content;
+		return document.content?.replace(/\s+/g, ' ').trim();
 	}
 }
 
